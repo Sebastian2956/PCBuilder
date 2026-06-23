@@ -23,7 +23,6 @@ namespace PCBuilder.Interaction
                 return;
             }
             instance = this;
-            DontDestroyOnLoad(gameObject);
 
             audioSource = gameObject.AddComponent<AudioSource>();
             audioSource.spatialBlend = 0f; // 2D flat sound

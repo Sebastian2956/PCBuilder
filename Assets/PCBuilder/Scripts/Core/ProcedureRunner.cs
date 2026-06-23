@@ -30,6 +30,7 @@ namespace PCBuilder.Core
         public int CurrentStepIndex => currentStepIndex;
         public int TotalSteps => steps.Count;
         public bool IsCompleted => isCompleted;
+        public bool IsVerifyStep => !isCompleted && currentStepIndex < steps.Count && steps[currentStepIndex].actionType == ProcedureActionType.Verify;
         public string CurrentInstruction => isCompleted ? "Procedure Completed Successfully!" : (currentStepIndex < steps.Count ? steps[currentStepIndex].instruction : "");
         public string CurrentHint => currentStepIndex < steps.Count ? steps[currentStepIndex].hint : "No hints available.";
 
@@ -45,7 +46,6 @@ namespace PCBuilder.Core
                 return;
             }
             instance = this;
-            DontDestroyOnLoad(gameObject);
 
             InitializeProcedure();
         }

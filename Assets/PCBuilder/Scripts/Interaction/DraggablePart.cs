@@ -86,13 +86,26 @@ public class DraggablePart : MonoBehaviour
 
     private void HandleDragging()
     {
-        // 1. Map mouse coordinate depth using New Input System Mouse current position
+        // 1. Get mouse screen position and cast a ray from camera
         Vector2 mousePos = UnityEngine.InputSystem.Mouse.current.position.ReadValue();
-        Vector3 screenPosWithDepth = new Vector3(mousePos.x, mousePos.y, currentDragDistance);
-        Vector3 targetWorldPos = mainCamera.ScreenToWorldPoint(screenPosWithDepth);
+        Ray ray = mainCamera.ScreenPointToRay(mousePos);
 
-        // Smoothly slide object towards cursor depth position
-        transform.position = Vector3.Lerp(transform.position, targetWorldPos, Time.deltaTime * dragSpeed);
+        // Drag the part on a horizontal plane slightly elevated above its resting position
+        float targetY = startPosition.y;
+        float dragHeight = targetY + 0.15f; 
+
+        float denom = ray.direction.y;
+        if (Mathf.Abs(denom) > 0.0001f)
+        {
+            float t = (dragHeight - ray.origin.y) / denom;
+            if (t > 0f)
+            {
+                Vector3 targetWorldPos = ray.origin + ray.direction * t;
+
+                // Smoothly slide object towards plane intersection target position
+                transform.position = Vector3.Lerp(transform.position, targetWorldPos, Time.deltaTime * dragSpeed);
+            }
+        }
 
         // 2. Q/E Rotation keys
         float rotInput = 0f;

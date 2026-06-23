@@ -49,6 +49,7 @@ namespace PCBuilder.UI
         private Button hintBtn;
         private Button resetBtn;
         private Button menuBtn;
+        private Button verifyBtn;
 
         // Completion Panel Controls
         private TextMeshProUGUI compTitleText;
@@ -62,6 +63,13 @@ namespace PCBuilder.UI
         // Loaded default TMP Font Asset
         private TMP_FontAsset defaultFont;
 
+        private ProcedureRunner GetRunner()
+        {
+            var r = GetComponent<ProcedureRunner>();
+            if (r == null) r = UnityEngine.Object.FindAnyObjectByType<ProcedureRunner>();
+            return r;
+        }
+
         private void Awake()
         {
             if (instance != null && instance != this)
@@ -70,7 +78,6 @@ namespace PCBuilder.UI
                 return;
             }
             instance = this;
-            DontDestroyOnLoad(gameObject);
 
             // Load default TMP Font
             defaultFont = Resources.Load<TMP_FontAsset>("Fonts & Materials/LiberationSans SDF");
@@ -85,11 +92,12 @@ namespace PCBuilder.UI
             BuildUI();
 
             // Register Event Listeners
-            if (ProcedureRunner.Instance != null)
+            var runner = GetRunner();
+            if (runner != null)
             {
-                ProcedureRunner.Instance.OnStepChanged += RefreshInProcedureUI;
-                ProcedureRunner.Instance.OnProcedureCompleted += ShowCompletionPanel;
-                ProcedureRunner.Instance.OnFeedbackMessage += HandleFeedbackMessage;
+                runner.OnStepChanged += RefreshInProcedureUI;
+                runner.OnProcedureCompleted += ShowCompletionPanel;
+                runner.OnFeedbackMessage += HandleFeedbackMessage;
             }
         }
 
@@ -108,11 +116,12 @@ namespace PCBuilder.UI
 
         private void OnDestroy()
         {
-            if (ProcedureRunner.Instance != null)
+            var runner = GetRunner();
+            if (runner != null)
             {
-                ProcedureRunner.Instance.OnStepChanged -= RefreshInProcedureUI;
-                ProcedureRunner.Instance.OnProcedureCompleted -= ShowCompletionPanel;
-                ProcedureRunner.Instance.OnFeedbackMessage -= HandleFeedbackMessage;
+                runner.OnStepChanged -= RefreshInProcedureUI;
+                runner.OnProcedureCompleted -= ShowCompletionPanel;
+                runner.OnFeedbackMessage -= HandleFeedbackMessage;
             }
         }
 
@@ -151,7 +160,6 @@ namespace PCBuilder.UI
                 GameObject esGo = new GameObject("EventSystem");
                 esGo.AddComponent<UnityEngine.EventSystems.EventSystem>();
                 esGo.AddComponent<UnityEngine.InputSystem.UI.InputSystemUIInputModule>();
-                DontDestroyOnLoad(esGo);
                 Debug.Log("[PCBuilderUI] EventSystem and InputSystemUIInputModule spawned programmatically.");
             }
         }
@@ -372,9 +380,18 @@ namespace PCBuilder.UI
             controlsVlg.childForceExpandHeight = false;
             controlsVlg.childForceExpandWidth = false;
 
-            hintBtn = CreateButton("HintBtn", controlsCard, "Hint", new Vector2(240, 55), Vector2.zero, () => ProcedureRunner.Instance.UseHint());
-            resetBtn = CreateButton("ResetBtn", controlsCard, "Reset", new Vector2(240, 55), Vector2.zero, () => ProcedureRunner.Instance.ResetProcedure());
+            hintBtn = CreateButton("HintBtn", controlsCard, "Hint", new Vector2(240, 55), Vector2.zero, () => GetRunner()?.UseHint());
+            resetBtn = CreateButton("ResetBtn", controlsCard, "Reset", new Vector2(240, 55), Vector2.zero, () => GetRunner()?.ResetProcedure());
             menuBtn = CreateButton("MenuBtn", controlsCard, "Return to Menu", new Vector2(240, 55), Vector2.zero, ReturnToMenuClicked);
+
+            verifyBtn = CreateButton("VerifyBtn", controlsCard, "Verify", new Vector2(240, 55), Vector2.zero, VerifyClicked);
+            Image verifyImg = verifyBtn.GetComponent<Image>();
+            verifyImg.color = successColor;
+            ColorBlock verifyCb = verifyBtn.colors;
+            verifyCb.normalColor = successColor;
+            verifyCb.highlightedColor = successColor * 1.15f;
+            verifyCb.pressedColor = successColor * 0.8f;
+            verifyBtn.colors = verifyCb;
 
             // Progress Bar (Slate bottom, teal fill)
             GameObject progressBarBg = CreatePanel("ProgressBarBg", inProcedurePanel, new Vector2(0.05f, 0.90f), new Vector2(0.95f, 0.93f), new Vector2(0.5f, 1f), new Color(0.2f, 0.2f, 0.2f, 1f));
@@ -415,15 +432,16 @@ namespace PCBuilder.UI
             compButtonsHlg.childForceExpandHeight = false;
             compButtonsHlg.childForceExpandWidth = false;
 
-            compRetryBtn = CreateButton("CompRetryBtn", compButtonsContainer, "Retry", new Vector2(240, 60), Vector2.zero, () => { ProcedureRunner.Instance.ResetProcedure(); ShowInProcedurePanel(); });
+            compRetryBtn = CreateButton("CompRetryBtn", compButtonsContainer, "Retry", new Vector2(240, 60), Vector2.zero, () => { GetRunner()?.ResetProcedure(); ShowInProcedurePanel(); });
             compMenuBtn = CreateButton("CompMenuBtn", compButtonsContainer, "Return to Menu", new Vector2(240, 60), Vector2.zero, ReturnToMenuClicked);
         }
 
         private void SetModeSelection(TrainingMode mode)
         {
-            if (ProcedureRunner.Instance != null)
+            var runner = GetRunner();
+            if (runner != null)
             {
-                ProcedureRunner.Instance.CurrentMode = mode;
+                runner.CurrentMode = mode;
             }
 
             // Style buttons to reflect active toggle
@@ -436,20 +454,40 @@ namespace PCBuilder.UI
         #region UI Button Event Callbacks
         private void StartProcedureClicked()
         {
-            if (ProcedureRunner.Instance != null)
+            var runner = GetRunner();
+            if (runner != null)
             {
-                ProcedureRunner.Instance.ResetProcedure();
+                runner.ResetProcedure();
             }
             ShowInProcedurePanel();
         }
 
         private void ReturnToMenuClicked()
         {
-            if (ProcedureRunner.Instance != null)
+            var runner = GetRunner();
+            if (runner != null)
             {
-                ProcedureRunner.Instance.ResetProcedure();
+                runner.ResetProcedure();
             }
             ShowStartPanel();
+        }
+
+        private void VerifyClicked()
+        {
+            var runner = GetRunner();
+            if (runner != null)
+            {
+                string feedback;
+                bool success = runner.ValidateAction(ProcedureActionType.Verify, "Verify", "Verify", out feedback);
+                if (success)
+                {
+                    runner.TriggerFeedback(feedback, false);
+                }
+                else
+                {
+                    runner.TriggerFeedback(feedback, true);
+                }
+            }
         }
         #endregion
 
@@ -476,7 +514,7 @@ namespace PCBuilder.UI
             completionPanel.SetActive(true);
 
             // Fetch session summary stats
-            if (ScoringService.Instance != null && ProcedureRunner.Instance != null)
+            if (ScoringService.Instance != null && GetRunner() != null)
             {
                 int finalScore = ScoringService.Instance.CurrentScore;
                 bool passed = ScoringService.Instance.Passed;
@@ -515,16 +553,17 @@ namespace PCBuilder.UI
         #region In-Procedure UI Updates
         private void RefreshInProcedureUI()
         {
-            if (ProcedureRunner.Instance == null) return;
+            var runner = GetRunner();
+            if (runner == null) return;
 
-            TrainingMode mode = ProcedureRunner.Instance.CurrentMode;
+            TrainingMode mode = runner.CurrentMode;
             modeText.text = mode.ToString().ToUpper() + " MODE";
             modeText.color = (mode == TrainingMode.Teach) ? warningColor : ((mode == TrainingMode.Practice) ? accentColor : errorColor);
 
-            int currentStep = ProcedureRunner.Instance.CurrentStepIndex + 1;
-            int total = ProcedureRunner.Instance.TotalSteps;
+            int currentStep = runner.CurrentStepIndex + 1;
+            int total = runner.TotalSteps;
 
-            if (ProcedureRunner.Instance.IsCompleted)
+            if (runner.IsCompleted)
             {
                 stepText.text = "Procedure Complete!";
                 instructionText.text = "Confirm both RAM modules are installed and locked.";
@@ -533,14 +572,20 @@ namespace PCBuilder.UI
             else
             {
                 stepText.text = $"Step {currentStep} of {total}";
-                instructionText.text = ProcedureRunner.Instance.CurrentInstruction;
+                instructionText.text = runner.CurrentInstruction;
 
-                float pct = (float)ProcedureRunner.Instance.CurrentStepIndex / total;
+                float pct = (float)runner.CurrentStepIndex / total;
                 progressBarFill.rectTransform.anchorMax = new Vector2(pct, 1f);
             }
 
             // Hide/Disable hints button in Assess mode
             hintBtn.gameObject.SetActive(mode != TrainingMode.Assess);
+
+            // Dynamic Verify Button visibility
+            if (verifyBtn != null)
+            {
+                verifyBtn.gameObject.SetActive(runner.IsVerifyStep);
+            }
         }
 
         private void UpdateInProcedureStats()

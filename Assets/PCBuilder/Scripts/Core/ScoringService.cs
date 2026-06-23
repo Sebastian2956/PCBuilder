@@ -41,7 +41,6 @@ namespace PCBuilder.Core
                 return;
             }
             instance = this;
-            DontDestroyOnLoad(gameObject);
         }
 
         public void StartSession()
